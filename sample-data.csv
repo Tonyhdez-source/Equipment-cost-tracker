@@ -1,0 +1,139 @@
+# Equipment Cost Tracker
+
+A professional, self-contained dark-mode web app for tracking equipment inventory and purchase costs. No backend, no build step, no account — open `index.html` and everything runs in the browser. Your data is saved automatically to the browser's local storage.
+
+Built with plain HTML, CSS, and modern JavaScript. The only dependencies are three open-source libraries loaded from a CDN: **SheetJS** (Excel/CSV), **jsPDF** (PDF reports), and **Chart.js** (analytics).
+
+---
+
+## Your data
+
+On first run the tracker loads your real inventory (3 items) from the MedTrack export `medtrack-inventory-2026-07-06.csv`. Everything after that is whatever you add, edit, or import — saved to your browser automatically. The **Load demo data** button on the Data page adds a separate fictional set if you want to explore features without touching your real records.
+
+The schema includes MedTrack's repair-history fields: **Last Repair Vendor**, **Repair Date Sent**, **Repair Date Returned**, and **Last Repair Reason**, plus **PO Number** and **Received By**. Future MedTrack exports auto-map to these on import.
+
+---
+
+## Features
+
+- **Dashboard** — total equipment, total purchase cost, most recent purchase, average cost, and category count, plus category and monthly-spending charts.
+- **Full inventory table** — every field editable: name, category, manufacturer, model, serial, vendor, invoice, purchase date, price, quantity, condition, warranty, expected replacement, location, asset tag, status, and notes.
+- **CRUD** — add, edit, delete, duplicate, bulk edit, bulk delete, bulk archive, and undo delete.
+- **Instant search** — filters as you type across name, model, category, vendor, serial, notes, location, status, date, and price.
+- **Sorting** — click any column header to sort ascending / descending.
+- **Filters** — category, vendor, status, condition, location, purchase year, warranty status, price range, favorites, and archived.
+- **Import** — CSV, Excel (.xlsx), and Google Sheets exports, with automatic column mapping and a manual mapping step for anything unmatched.
+- **Export** — CSV, Excel, JSON, and a printable PDF report.
+- **Backup & restore** — export/import a full JSON snapshot, restore the last auto-backup, or reset the database.
+- **Comments** — per-item comment threads with timestamps, edit, and delete.
+- **Warranty alerts** — a dedicated view surfacing what's expired, expiring within 30 days, and expiring in 31–90 days, sorted by soonest, with a nav badge for urgent items and click-through to edit.
+- **Analytics** — vendor spending, count by category, most expensive equipment, and average cost by category.
+- **Auction price research** (`price-research.html`) — a separate buying-intelligence tool built from used-equipment auction sales: price-over-time scatter, average price by model, and a low/avg/high buying guide so you know a fair offer before you bid.
+- **Extras** — favorites, archive, duplicate detection warning, column visibility, pagination with a rows-per-page selector, sticky headers, keyboard shortcuts, toasts, confirmation dialogs, and a light-mode toggle (dark is default).
+- **Responsive** — works on desktop, tablet, and mobile.
+
+---
+
+## Installation
+
+No installation required.
+
+1. Download or clone this repository.
+2. Open `index.html` in any modern browser.
+
+To load it as a local server instead (optional):
+
+```bash
+# Python 3
+python -m http.server 8000
+# then visit http://localhost:8000
+```
+
+---
+
+## Screenshots
+
+_Add screenshots here._
+
+```
+docs/dashboard.png
+docs/inventory.png
+docs/analytics.png
+```
+
+---
+
+## Import instructions
+
+1. Go to **Data & Backup → Import**.
+2. Drag a file onto the drop zone, or click to browse. CSV, `.xlsx`, and Google Sheets exports are supported.
+3. The app auto-maps columns by header name. Review the mapping dialog and adjust any that weren't matched.
+4. Map at least a column to **Equipment Name**, then click **Import rows**.
+
+To try it quickly, click **Load sample data**, or import the included `sample-data.csv`.
+
+**Google Sheets:** in Google Sheets choose `File → Download → CSV` or `Microsoft Excel (.xlsx)` and import the downloaded file. No changes to the sheet are needed.
+
+---
+
+## Export instructions
+
+Go to **Data & Backup → Export** and choose:
+
+- **CSV** — universal spreadsheet format.
+- **Excel (.xlsx)** — native workbook.
+- **JSON** — full structured data, including comments and flags.
+- **PDF report** — a printable landscape summary with totals.
+
+---
+
+## GitHub Pages deployment
+
+1. Push this project to a GitHub repository.
+2. In the repo, go to **Settings → Pages**.
+3. Under **Build and deployment**, set **Source** to `Deploy from a branch`.
+4. Choose the `main` branch and `/ (root)` folder, then **Save**.
+5. Your app will be live at `https://<username>.github.io/<repo-name>/` within a minute or two.
+
+Because the app is fully client-side, no other configuration is needed.
+
+---
+
+## Customization guide
+
+- **Colors & theme** — edit the CSS variables at the top of `style.css` (`--bg`, `--card`, `--accent`, `--accent-2`, `--text`, `--subtext`). Light-mode values live under `[data-theme="light"]`.
+- **Columns / fields** — edit the `COLUMNS` array near the top of `script.js`. Add, remove, or reorder fields; the table, add/edit form, import mapper, and exports all update automatically.
+- **Default visible columns** — edit `DEFAULT_VISIBLE` in `script.js`.
+- **Searchable fields** — edit `SEARCH_KEYS` in `script.js`.
+- **Sample data** — edit the `SAMPLE` array in `script.js` or replace `sample-data.csv`.
+- **Import aliases** — extend the `alias` map inside `autoMatch()` in `script.js` to auto-recognize more header names.
+
+---
+
+## Project structure
+
+```
+equipment-cost-tracker/
+├── index.html         # Markup and layout
+├── style.css          # Dark/light theme and all styling
+├── script.js          # Application logic (state, CRUD, import/export, charts, warranty)
+├── price-research.html # Standalone auction price-research / buying-intelligence tool
+├── sample-data.csv    # Example import file for the tracker
+├── auction-price-data.csv # Auction sale comparables behind the price-research tool
+├── assets/            # Images / screenshots
+├── icons/             # favicon.svg
+├── README.md
+└── LICENSE
+```
+
+---
+
+## Data & privacy
+
+All data stays in your browser's local storage on your device. Nothing is uploaded anywhere. Clearing your browser data will remove it — export a backup regularly from **Data & Backup → Export backup file**.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
