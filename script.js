@@ -24,6 +24,11 @@
   const BACKUP_KEY = 'ect.backup.v1';
   const PREF_KEY   = 'ect.prefs.v1';
 
+  // Soft passcode gate. NOTE: this is a convenience lock, not real security —
+  // the code is visible in this file. To change it, edit PASSCODE below.
+  const PASSCODE   = '1997';
+  const UNLOCK_KEY = 'ect.unlocked.v1';
+
   // Column definitions drive the table, form, import mapping and export.
   const COLUMNS = [
     { key: 'name',        label: 'Equipment Name',       type: 'text',   required: true },
@@ -756,6 +761,9 @@
     const mk = Object.keys(months).sort();
     mkChart('chartMonthly', 'bar', mk, mk.map(k => months[k]), { money: true, single: c.accent });
 
+    // cumulative spend over time — running total, one point per purchase date
+    renderCumulative(active, c);
+
     // vendor spending
     const ven = sumBy('vendor', i => (+i.price||0)*(+i.quantity||1));
     const vk = Object.entries(ven).sort((a,b)=>b[1]-a[1]).slice(0,8);
@@ -773,6 +781,52 @@
     Object.keys(cat).forEach(k => { const g = active.filter(i => (i.category||'Uncategorised')===k); avgByCat[k] = cat[k] / g.reduce((s,i)=>s+(+i.quantity||1),0); });
     $('#avgList').innerHTML = Object.keys(avgByCat).length ? Object.entries(avgByCat).sort((a,b)=>b[1]-a[1]).map(([k,v]) =>
       `<div class="mini-row"><div class="mini-row__main"><div class="mini-row__title">${esc(k)}</div></div><div class="mini-row__val">${money(v)}</div></div>`).join('') : '<p class="muted">No data.</p>';
+  }
+
+  // Cumulative spend: sort priced purchases by date, accumulate a running total.
+  function renderCumulative(active, c) {
+    const el = document.getElementById('chartCumulative'); if (!el) return;
+    const priced = active
+      .filter(i => i.purchaseDate && (+i.price || 0) > 0)
+      .map(i => ({ date: i.purchaseDate, amount: (+i.price || 0) * (+i.quantity || 1), name: i.name }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    let running = 0;
+    const points = priced.map(p => { running += p.amount; return { x: p.date, y: running, name: p.name, spent: p.amount }; });
+
+    charts.chartCumulative = new Chart(el, {
+      type: 'line',
+      data: {
+        labels: points.map(p => p.x),
+        datasets: [{
+          data: points.map(p => p.y),
+          borderColor: c.accent,
+          backgroundColor: 'transparent',
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointHoverRadius: 7,
+          pointBackgroundColor: c.accent,
+          tension: 0.25,
+          fill: true,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            title: ctx => fmtDate(points[ctx[0].dataIndex].x),
+            label: ctx => ` Total: ${money(ctx.parsed.y)}`,
+            afterLabel: ctx => { const p = points[ctx.dataIndex]; return `${p.name} · +${money(p.spent)}`; },
+          } },
+        },
+        scales: {
+          x: { type: 'category', grid: { display: false },
+               ticks: { callback: function (v) { const l = this.getLabelForValue(v); return l ? new Date(l + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) : l; }, maxRotation: 0, autoSkip: true } },
+          y: { beginAtZero: true, grid: { color: c.grid || chartColors().grid }, ticks: { callback: v => '$' + (v >= 1000 ? (v / 1000) + 'k' : v) } },
+        },
+      },
+    });
   }
 
   function mkChart(id, type, labels, data, opts = {}) {
@@ -880,6 +934,8 @@
     $$('.nav__item').forEach(n => n.onclick = () => switchView(n.dataset.view));
     $('#menuToggle').onclick = () => $('#sidebar').classList.toggle('is-open');
     $('#themeToggle').onclick = toggleTheme;
+    const lockNow = $('#lockNow');
+    if (lockNow) lockNow.onclick = () => { localStorage.removeItem(UNLOCK_KEY); location.reload(); };
 
     // search (instant)
     $('#globalSearch').addEventListener('input', e => { view.search = e.target.value; view.page = 1; renderTable(); });
@@ -974,8 +1030,8 @@
     { name:'Statim 5000 G4 Autoclave', category:'Sterilization', manufacturer:'SciCan', model:'Statim 5000 G4', serial:'STAT-5521', vendor:'Henry Schein', purchaseDate:'2025-01-08', price:'6200', quantity:'2', condition:'New', warranty:'2027-01-08', location:'Surgery Center', assetTag:'ME-0005', status:'Active' },
   ];
 
-  /* -------- Boot -------- */
-  function boot() {
+  /* -------- Passcode gate (soft lock) -------- */
+  function startApp() {
     load();
     applyTheme();
     buildForm();
@@ -983,5 +1039,32 @@
     renderAll();
     $('#lastSaved') && (localStorage.getItem(STORE_KEY) ? $('#lastSaved').textContent = 'on load' : null);
   }
+
+  function gate() {
+    // Already unlocked this browser? Skip straight to the app.
+    if (localStorage.getItem(UNLOCK_KEY) === 'yes') { startApp(); return; }
+
+    const screen = $('#lockScreen'), input = $('#lockInput'), err = $('#lockError'), btn = $('#lockBtn');
+    screen.hidden = false;
+    setTimeout(() => input.focus(), 50);
+
+    const tryUnlock = () => {
+      if (input.value === PASSCODE) {
+        localStorage.setItem(UNLOCK_KEY, 'yes');
+        screen.hidden = true;
+        startApp();
+      } else {
+        err.hidden = false;
+        input.value = '';
+        input.focus();
+      }
+    };
+    btn.onclick = tryUnlock;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+    input.addEventListener('input', () => { err.hidden = true; });
+  }
+
+  /* -------- Boot -------- */
+  function boot() { gate(); }
   document.addEventListener('DOMContentLoaded', boot);
 })();

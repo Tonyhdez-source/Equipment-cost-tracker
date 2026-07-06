@@ -204,6 +204,7 @@ kbd {
 
 /* Charts */
 .chart-wrap { position: relative; height: 260px; }
+.chart-wrap--wide { height: 300px; }
 
 /* Mini lists */
 .mini-list { display: flex; flex-direction: column; }
@@ -366,6 +367,33 @@ input.invalid, textarea.invalid { border-color: var(--danger); }
 .toast button { background: none; border: none; color: var(--subtext); cursor: pointer; }
 .toast__undo { color: var(--accent-2); font-weight: 600; }
 @keyframes toastIn { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------- Lock screen ---------- */
+.lock {
+  position: fixed; inset: 0; z-index: 200;
+  display: grid; place-items: center; padding: 20px;
+  background: var(--bg);
+}
+.lock[hidden] { display: none; }
+.lock__panel {
+  width: min(360px, 100%); text-align: center;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 36px 28px; animation: pop .25s;
+}
+.lock__mark {
+  width: 52px; height: 52px; margin: 0 auto 16px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff; border-radius: 14px; font-size: 26px;
+}
+.lock__title { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.lock__sub { color: var(--subtext); font-size: 13px; margin: 4px 0 22px; }
+.lock__input {
+  text-align: center; font-size: 22px; letter-spacing: .4em;
+  font-family: var(--mono); padding: 13px; margin-bottom: 12px;
+}
+.lock__error { color: var(--danger); font-size: 12px; margin-bottom: 12px; }
+.lock .btn { margin-top: 4px; }
 
 /* ---------- Loading ---------- */
 .loader { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }

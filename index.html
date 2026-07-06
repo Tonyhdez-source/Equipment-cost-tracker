@@ -15,6 +15,18 @@
 </head>
 <body>
 
+<!-- ===== Lock screen (soft passcode gate) ===== -->
+<div class="lock" id="lockScreen" hidden>
+  <div class="lock__panel">
+    <span class="lock__mark" aria-hidden="true">◧</span>
+    <h1 class="lock__title">Equipment Tracker</h1>
+    <p class="lock__sub">Enter passcode to continue</p>
+    <input type="password" id="lockInput" class="lock__input" inputmode="numeric" autocomplete="off" placeholder="••••" aria-label="Passcode">
+    <p class="lock__error" id="lockError" hidden>Incorrect passcode. Try again.</p>
+    <button class="btn btn--secondary btn--block" id="lockBtn">Unlock</button>
+  </div>
+</div>
+
 <!-- ===== App shell ===== -->
 <div class="app">
 
@@ -45,6 +57,7 @@
       <button class="btn btn--ghost btn--block" id="themeToggle" title="Toggle light / dark (Shift+L)">
         <span id="themeIcon">☀</span> <span id="themeLabel">Light mode</span>
       </button>
+      <button class="btn btn--ghost btn--block" id="lockNow" title="Lock and require passcode">🔒 Lock</button>
       <p class="sidebar__hint">Press <kbd>?</kbd> for shortcuts</p>
     </div>
   </aside>
@@ -81,6 +94,11 @@
           <div class="card__head"><h2>Monthly spending</h2></div>
           <div class="chart-wrap"><canvas id="chartMonthly"></canvas></div>
         </div>
+      </div>
+
+      <div class="card">
+        <div class="card__head"><h2>Cumulative spend over time</h2></div>
+        <div class="chart-wrap chart-wrap--wide"><canvas id="chartCumulative"></canvas></div>
       </div>
 
       <div class="card">
