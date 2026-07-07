@@ -58,6 +58,14 @@
   ];
   const COL = Object.fromEntries(COLUMNS.map(c => [c.key, c]));
 
+  // Suggested equipment categories (free-text field still allows others).
+  const CATEGORIES = [
+    'Slit Lamps', 'Stands', 'Exam Chairs', 'Phoropters', 'Auto Refractors',
+    'Autoclaves', 'Indirects', 'Lensometers', 'Lasers', 'Tonometers',
+    'OCT / Imaging', 'Visual Field', 'Topographers', 'IOL / Biometry',
+    'IT / Network', 'Fleet', 'Other',
+  ];
+
   // Columns shown in the table by default (others hidden but toggleable).
   const DEFAULT_VISIBLE = ['name','category','manufacturer','model','serial','vendor','purchaseDate','price','condition','warranty','location','status','repairReason','updatedAt'];
 
@@ -415,10 +423,12 @@
         field = `<textarea name="${c.key}" rows="3"></textarea>`;
       } else {
         const min = c.type === 'number' ? 'min="0" step="0.01"' : '';
-        field = `<input name="${c.key}" type="${c.type}" ${min}>`;
+        // Category gets a datalist of suggested types while staying free-text.
+        const list = c.key === 'category' ? 'list="categoryList"' : '';
+        field = `<input name="${c.key}" type="${c.type}" ${min} ${list}>`;
       }
       return `<label class="${span} ${c.required?'req':''}">${esc(c.label)}${field}<span class="field-error" data-err="${c.key}"></span></label>`;
-    }).join('');
+    }).join('') + `<datalist id="categoryList">${CATEGORIES.map(c=>`<option value="${esc(c)}"></option>`).join('')}</datalist>`;
   }
 
   function openDrawer(id = null) {
@@ -829,6 +839,91 @@
     });
   }
 
+  /* -------- Per-category spend charts -------- */
+  function renderCategories() {
+    const grid = $('#categoryGrid'); if (!grid) return;
+    if (typeof Chart === 'undefined') return;
+
+    // Destroy any existing category charts before redrawing.
+    Object.keys(charts).forEach(k => { if (k.startsWith('cat_')) { charts[k] && charts[k].destroy(); delete charts[k]; } });
+
+    const grouping = $('#catGrouping') ? $('#catGrouping').value : 'cumulative';
+    const c = chartColors();
+    const active = items.filter(i => !i.archived && i.category && i.purchaseDate && (+i.price || 0) > 0);
+
+    // Group priced purchases by category.
+    const byCat = {};
+    active.forEach(i => {
+      (byCat[i.category] = byCat[i.category] || []).push({ date: i.purchaseDate, amount: (+i.price||0)*(+i.quantity||1), name: i.name });
+    });
+
+    const cats = Object.keys(byCat).sort((a, b) =>
+      byCat[b].reduce((s,x)=>s+x.amount,0) - byCat[a].reduce((s,x)=>s+x.amount,0)); // richest first
+
+    $('#categoryEmpty').hidden = cats.length > 0;
+
+    grid.innerHTML = cats.map((cat, idx) => {
+      const total = byCat[cat].reduce((s, x) => s + x.amount, 0);
+      const units = byCat[cat].length;
+      return `<div class="cat-card">
+        <div class="cat-card__head">
+          <span class="cat-card__title">${esc(cat)}</span>
+          <span class="cat-card__total">${money(total)}</span>
+        </div>
+        <div class="cat-card__meta">${units} purchase${units>1?'s':''} · avg ${money(total/units)}</div>
+        <div class="cat-card__chart"><canvas id="cat_${idx}"></canvas></div>
+      </div>`;
+    }).join('');
+
+    // Draw a chart per category.
+    cats.forEach((cat, idx) => {
+      const el = document.getElementById('cat_' + idx); if (!el) return;
+      const rows = byCat[cat].slice().sort((a, b) => a.date.localeCompare(b.date));
+      const color = PALETTE[idx % PALETTE.length];
+
+      let labels, data, type, tooltip;
+      if (grouping === 'monthly') {
+        // Sum by month.
+        const m = {};
+        rows.forEach(r => { const k = r.date.slice(0,7); m[k] = (m[k]||0) + r.amount; });
+        labels = Object.keys(m).sort();
+        data = labels.map(k => m[k]);
+        type = 'bar';
+        tooltip = { label: ctx => ` ${money(ctx.parsed.y)}` };
+      } else {
+        // Running total.
+        let run = 0;
+        const pts = rows.map(r => { run += r.amount; return { x: r.date, y: run, name: r.name, spent: r.amount }; });
+        labels = pts.map(p => p.x);
+        data = pts.map(p => p.y);
+        type = 'line';
+        tooltip = {
+          title: ctx => fmtDate(pts[ctx[0].dataIndex].x),
+          label: ctx => ` Total: ${money(ctx.parsed.y)}`,
+          afterLabel: ctx => `${pts[ctx.dataIndex].name} · +${money(pts[ctx.dataIndex].spent)}`,
+        };
+      }
+
+      charts['cat_' + idx] = new Chart(el, {
+        type,
+        data: { labels, datasets: [{
+          data, borderColor: color, backgroundColor: type === 'bar' ? color : 'transparent',
+          borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: color,
+          tension: 0.25, fill: false, borderRadius: type === 'bar' ? 5 : 0,
+        }]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: tooltip } },
+          scales: {
+            x: { type: 'category', grid: { display: false },
+                 ticks: { callback: function (v) { const l = this.getLabelForValue(v); return l ? new Date((l.length===7?l+'-01':l) + 'T00:00:00').toLocaleDateString('en-US', { month:'short', year:'2-digit' }) : l; }, maxRotation: 0, autoSkip: true, maxTicksLimit: 5 } },
+            y: { beginAtZero: true, grid: { color: c.grid }, ticks: { maxTicksLimit: 4, callback: v => '$' + (v >= 1000 ? (v/1000)+'k' : v) } },
+          },
+        },
+      });
+    });
+  }
+
   function mkChart(id, type, labels, data, opts = {}) {
     const el = document.getElementById(id); if (!el) return;
     const colors = labels.map((_, i) => PALETTE[i % PALETTE.length]);
@@ -918,6 +1013,7 @@
     $('#sidebar').classList.remove('is-open');
     if (name === 'analytics' || name === 'dashboard') renderAnalytics();
     if (name === 'warranty') renderWarranty();
+    if (name === 'categories') renderCategories();
   }
 
   function applyTheme() {
@@ -934,6 +1030,8 @@
     $$('.nav__item').forEach(n => n.onclick = () => switchView(n.dataset.view));
     $('#menuToggle').onclick = () => $('#sidebar').classList.toggle('is-open');
     $('#themeToggle').onclick = toggleTheme;
+    const catGroup = $('#catGrouping');
+    if (catGroup) catGroup.onchange = renderCategories;
     const lockNow = $('#lockNow');
     if (lockNow) lockNow.onclick = () => { localStorage.removeItem(UNLOCK_KEY); location.reload(); };
 
@@ -1017,9 +1115,9 @@
   // Real inventory — from MedTrack export dated 2026-07-06.
   // quantity defaults to 1; purchaseDate maps from MedTrack "dateReceived".
   const SEED = [
-    { name:'Topcon AR KR 8800 Autorefractor', category:'Diagnostic', manufacturer:'Topcon', model:'AR KR 8800', serial:'4117815', location:'Warehouse', status:'In Repair', quantity:'1', purchaseDate:'2026-06-04', notes:"Screen black. Can't see patient's eye." },
-    { name:'Marco 101 Lensometer', category:'Diagnostic', manufacturer:'Marco', model:'101', serial:'45343', location:'Edna', vendor:'AL Eye Equipment', status:'In Service', quantity:'1', purchaseDate:'2026-05-29', price:'650', receivedBy:'Tony', notes:'Lensometer.' },
-    { name:'Lumenis SLT Laser', category:'Laser', manufacturer:'Lumines', model:'SLT', serial:'001-510922', location:'North Office', status:'In Service', quantity:'1', purchaseDate:'2026-05-26', price:'1750', notes:'Dr. Hay states issues.', repairVendor:'Laser Locators', repairSent:'2026-06-04', repairReturned:'2026-06-04', repairReason:'Calibration required' },
+    { name:'Topcon AR KR 8800 Autorefractor', category:'Auto Refractors', manufacturer:'Topcon', model:'AR KR 8800', serial:'4117815', location:'Warehouse', status:'In Repair', quantity:'1', purchaseDate:'2026-06-04', notes:"Screen black. Can't see patient's eye." },
+    { name:'Marco 101 Lensometer', category:'Lensometers', manufacturer:'Marco', model:'101', serial:'45343', location:'Edna', vendor:'AL Eye Equipment', status:'In Service', quantity:'1', purchaseDate:'2026-05-29', price:'650', receivedBy:'Tony', notes:'Lensometer.' },
+    { name:'Lumenis SLT Laser', category:'Lasers', manufacturer:'Lumines', model:'SLT', serial:'001-510922', location:'North Office', status:'In Service', quantity:'1', purchaseDate:'2026-05-26', price:'1750', notes:'Dr. Hay states issues.', repairVendor:'Laser Locators', repairSent:'2026-06-04', repairReturned:'2026-06-04', repairReason:'Calibration required' },
   ];
 
   // Fictional demo set (for exploring features without real data).

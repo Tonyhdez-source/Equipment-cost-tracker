@@ -46,6 +46,9 @@
       <button class="nav__item" data-view="warranty">
         <span class="nav__icon">◷</span> Warranty <span class="nav__badge" id="warrantyBadge" hidden>0</span>
       </button>
+      <button class="nav__item" data-view="categories">
+        <span class="nav__icon">▥</span> Categories
+      </button>
       <button class="nav__item" data-view="analytics">
         <span class="nav__icon">◔</span> Analytics
       </button>
@@ -208,6 +211,29 @@
         <div class="card__head"><h2>Expiring in 31–90 days</h2><span class="count-chip" id="soon90Count">0</span></div>
         <div class="table-wrap"><table class="table"><tbody id="soon90Body"></tbody></table></div>
         <p class="empty-inline" id="soon90Empty" hidden>Nothing expiring in this window.</p>
+      </div>
+    </section>
+
+    <!-- ===== View: Categories ===== -->
+    <section class="view" id="view-categories">
+      <div class="view__head view__head--row">
+        <div>
+          <h1>Spend by category</h1>
+          <p class="muted">Total spent on each equipment type over time. One chart per category.</p>
+        </div>
+        <div class="view__head-actions">
+          <label class="cat-toggle">Group by
+            <select id="catGrouping">
+              <option value="cumulative">Running total</option>
+              <option value="monthly">Per month</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="cat-grid" id="categoryGrid"></div>
+      <div class="empty" id="categoryEmpty" hidden>
+        <p class="empty__title">No priced equipment yet.</p>
+        <p class="muted">Add equipment with a category and purchase price to see per-category spending here.</p>
       </div>
     </section>
 
