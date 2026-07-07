@@ -881,8 +881,20 @@
       const rows = byCat[cat].slice().sort((a, b) => a.date.localeCompare(b.date));
       const color = PALETTE[idx % PALETTE.length];
 
-      let labels, data, type, tooltip;
-      if (grouping === 'monthly') {
+      let labels, data, type, tooltip, xIsDate = true, itemNames = null;
+      if (grouping === 'each') {
+        // One bar per individual purchase, in date order, labelled by item name.
+        const pts = rows.map(r => ({ name: r.name, amount: r.amount, date: r.date }));
+        labels = pts.map(p => p.name);
+        data = pts.map(p => p.amount);
+        type = 'bar';
+        xIsDate = false;
+        tooltip = {
+          title: ctx => pts[ctx[0].dataIndex].name,
+          label: ctx => ` ${money(ctx.parsed.y)}`,
+          afterLabel: ctx => `Purchased ${fmtDate(pts[ctx.dataIndex].date)}`,
+        };
+      } else if (grouping === 'monthly') {
         // Sum by month.
         const m = {};
         rows.forEach(r => { const k = r.date.slice(0,7); m[k] = (m[k]||0) + r.amount; });
@@ -916,7 +928,9 @@
           plugins: { legend: { display: false }, tooltip: { callbacks: tooltip } },
           scales: {
             x: { type: 'category', grid: { display: false },
-                 ticks: { callback: function (v) { const l = this.getLabelForValue(v); return l ? new Date((l.length===7?l+'-01':l) + 'T00:00:00').toLocaleDateString('en-US', { month:'short', year:'2-digit' }) : l; }, maxRotation: 0, autoSkip: true, maxTicksLimit: 5 } },
+                 ticks: xIsDate
+                   ? { callback: function (v) { const l = this.getLabelForValue(v); return l ? new Date((l.length===7?l+'-01':l) + 'T00:00:00').toLocaleDateString('en-US', { month:'short', year:'2-digit' }) : l; }, maxRotation: 0, autoSkip: true, maxTicksLimit: 5 }
+                   : { callback: function (v) { const l = this.getLabelForValue(v); return l && l.length > 14 ? l.slice(0,13) + '…' : l; }, maxRotation: 40, minRotation: 0, autoSkip: false, font: { size: 10 } } },
             y: { beginAtZero: true, grid: { color: c.grid }, ticks: { maxTicksLimit: 4, callback: v => '$' + (v >= 1000 ? (v/1000)+'k' : v) } },
           },
         },
@@ -944,7 +958,14 @@
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: !!opts.legend, position: 'right', labels: { boxWidth: 12, padding: 12 } },
-          tooltip: { callbacks: { label: ctx => opts.money || type === 'doughnut' ? ` ${money(ctx.parsed.y ?? ctx.parsed.x ?? ctx.parsed)}` : ` ${ctx.parsed.y ?? ctx.parsed.x ?? ctx.parsed}` } },
+          tooltip: { callbacks: { label: ctx => {
+            // Pick the value axis: horizontal bars use x, vertical use y, doughnut uses raw parsed.
+            let val;
+            if (type === 'doughnut') val = ctx.parsed;
+            else if (opts.horizontal) val = ctx.parsed.x;
+            else val = ctx.parsed.y;
+            return opts.money || type === 'doughnut' ? ` ${money(val)}` : ` ${val}`;
+          } } },
         },
         scales: type === 'doughnut' ? {} : {
           x: { grid: { display: opts.horizontal }, ticks: { callback: v => opts.money && !opts.horizontal ? '' : v } },
